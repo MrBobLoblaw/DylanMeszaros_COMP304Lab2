@@ -2,20 +2,29 @@ package com.example.dylanmeszaros_comp304lab2_ex1
 
 import android.content.Intent
 import android.os.Bundle
+import android.text.InputType
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -37,9 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.text.isDigitsOnly
 
 import com.example.dylanmeszaros_comp304lab2_ex1.ui.theme.CoreTheme
 import androidx.lifecycle.ViewModel
@@ -66,8 +77,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CoreTheme {
-                HomeActivity_Main(onEditTask = {
-                    startActivity(Intent(this@MainActivity, EditActivity::class.java));
+                HomeActivity_Main(onEditTask = { task ->
+                    startActivity(Intent(this@MainActivity, EditActivity::class.java).apply {
+                        putExtra("taskID", task.id);
+                    });
                     finish();
                 }, onCreateTask = {
                     startActivity(Intent(this@MainActivity, CreateActivity::class.java));
@@ -94,7 +107,12 @@ class EditActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            EditActivity_Main(onEditedTask = {
+            val taskViewModel: TaskViewModel = koinViewModel();
+            val taskID = intent.getIntExtra("taskID", 1);
+
+            //Log.d("EditActivity", "Start")
+
+            EditActivity_Main(taskViewModel.getTasks()[taskID - 1], onEditedTask = {
                 startActivity(Intent(this@EditActivity, MainActivity::class.java));
                 finish();
             });
@@ -104,7 +122,7 @@ class EditActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeActivity_Main(onEditTask: () -> Unit, onCreateTask: () -> Unit) {
+fun HomeActivity_Main(onEditTask: (Task) -> Unit, onCreateTask: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -135,6 +153,8 @@ fun HomeActivity_Main(onEditTask: () -> Unit, onCreateTask: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateActivity_Main(onCreatedTask: () -> Unit) {
+    val taskViewModel: TaskViewModel = koinViewModel();
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -152,9 +172,8 @@ fun CreateActivity_Main(onCreatedTask: () -> Unit) {
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                var name by remember { mutableStateOf("") };
-                var description by remember { mutableStateOf("") };
-                var dueDate by remember { mutableStateOf("") };
+                var name by remember { mutableStateOf("New Task") };
+
                 TextField(
                     value = name,
                     onValueChange = { name = it },
@@ -162,6 +181,8 @@ fun CreateActivity_Main(onCreatedTask: () -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 );
                 Spacer(modifier = Modifier.height(8.dp));
+
+                var description by remember { mutableStateOf("...") };
                 TextField(
                     value = description,
                     onValueChange = { description = it },
@@ -170,20 +191,87 @@ fun CreateActivity_Main(onCreatedTask: () -> Unit) {
                     maxLines = 10
                 );
                 Spacer(modifier = Modifier.height(16.dp));
+
+                var dueDate by remember { mutableStateOf("October 20th, 2024") };
                 TextField(
                     value = dueDate,
                     onValueChange = { dueDate = it },
                     label = { Text("Due Date") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth(),
                     maxLines = 1
                 );
+                Spacer(modifier = Modifier.height(16.dp));
+
+                var progress by remember { mutableStateOf(TextFieldValue("0")) };
+                var progressThreshold by remember { mutableStateOf(TextFieldValue("1")) };
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ){
+                    Row() {
+                        BoxWithConstraints {
+                            var maxWidth = maxWidth;
+
+                            TextField(
+                                value = progress,
+                                onValueChange = {
+                                    if (it.text.isDigitsOnly()) {
+                                        progress = it;
+
+                                        if (it.text.isEmpty()){
+                                            progress = TextFieldValue("0");
+                                        } else {
+                                            if (it.text.toFloat() < 0) {
+                                                progress = TextFieldValue("0");
+                                            }
+                                            if (it.text.toFloat() > progressThreshold.text.toFloat()) {
+                                                progress = progressThreshold;
+                                            }
+                                        }
+                                    }
+                                },
+                                label = { Text("Progress") },
+                                modifier = Modifier
+                                    .width(maxWidth / 2f),
+                                maxLines = 1
+                            );
+                        }
+
+                        BoxWithConstraints {
+                            var maxWidth = maxWidth;
+
+                            TextField(
+                                value = progressThreshold,
+                                onValueChange = {
+                                    if (it.text.isDigitsOnly()) {
+                                        progressThreshold = it;
+
+                                        if (it.text.isEmpty()){
+                                            progressThreshold = progress;
+                                        } else {
+                                            if (it.text.toFloat() < progress.text.toFloat()) {
+                                                progressThreshold = progress;
+                                            }
+                                        }
+                                    }
+                                },
+                                label = { Text("Threshold") },
+                                modifier = Modifier
+                                    .width(maxWidth),
+                                maxLines = 1
+                            );
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(16.dp));
                 Button(onClick = {
                     onCreatedTask();
                     //Add Task to Repositiory
 
+                    taskViewModel.addTask(Task(taskViewModel.getTasks().count() + 1, name, description, dueDate, progress.text.toFloat(), progressThreshold.text.toFloat()))
                 }) {
-                    Text("Add Task");
+                    Text("Create Task");
                 }
             }
         }
@@ -192,7 +280,9 @@ fun CreateActivity_Main(onCreatedTask: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditActivity_Main(onEditedTask: () -> Unit) {
+fun EditActivity_Main(task: Task, onEditedTask: () -> Unit) {
+    val taskViewModel: TaskViewModel = koinViewModel();
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -210,10 +300,8 @@ fun EditActivity_Main(onEditedTask: () -> Unit) {
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                var name by remember { mutableStateOf("") };
-                var description by remember { mutableStateOf("") };
-                var dueDate by remember { mutableStateOf("") };
-                var status by remember { mutableStateOf("") };
+                var name by remember { mutableStateOf(task.name) };
+
                 TextField(
                     value = name,
                     onValueChange = { name = it },
@@ -221,6 +309,8 @@ fun EditActivity_Main(onEditedTask: () -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 );
                 Spacer(modifier = Modifier.height(8.dp));
+
+                var description by remember { mutableStateOf(task.description) };
                 TextField(
                     value = description,
                     onValueChange = { description = it },
@@ -229,26 +319,83 @@ fun EditActivity_Main(onEditedTask: () -> Unit) {
                     maxLines = 10
                 );
                 Spacer(modifier = Modifier.height(16.dp));
+
+                var dueDate by remember { mutableStateOf(task.dueDate) };
                 TextField(
                     value = dueDate,
                     onValueChange = { dueDate = it },
                     label = { Text("Due Date") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth(),
                     maxLines = 1
                 );
                 Spacer(modifier = Modifier.height(16.dp));
-                TextField(
-                    value = status,
-                    onValueChange = { dueDate = it },
-                    label = { Text("Status") },
-                    modifier = Modifier.fillMaxWidth(),
-                    maxLines = 1
-                );
+
+                var progress by remember { mutableStateOf(TextFieldValue(task.progress.toInt().toString())) };
+                var progressThreshold by remember { mutableStateOf(TextFieldValue(task.progressThreshold.toInt().toString())) };
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ){
+                    Row() {
+                        BoxWithConstraints {
+                            var maxWidth = maxWidth;
+
+                            TextField(
+                                value = progress,
+                                onValueChange = {
+                                    if (it.text.isDigitsOnly()) {
+                                        progress = it;
+
+                                        if (it.text.isEmpty()){
+                                            progress = TextFieldValue("0");
+                                        } else {
+                                            if (it.text.toFloat() < 0) {
+                                                progress = TextFieldValue("0");
+                                            }
+                                            if (it.text.toFloat() > progressThreshold.text.toFloat()) {
+                                                progress = progressThreshold;
+                                            }
+                                        }
+                                    }
+                                },
+                                label = { Text("Progress") },
+                                modifier = Modifier
+                                    .width(maxWidth / 2f),
+                                maxLines = 1
+                            );
+                        }
+
+                        BoxWithConstraints {
+                            var maxWidth = maxWidth;
+
+                            TextField(
+                                value = progressThreshold,
+                                onValueChange = {
+                                    if (it.text.isDigitsOnly()) {
+                                        progressThreshold = it;
+
+                                        if (it.text.isEmpty()){
+                                            progressThreshold = progress;
+                                        } else {
+                                            if (it.text.toFloat() < progress.text.toFloat()) {
+                                                progressThreshold = progress;
+                                            }
+                                        }
+                                    }
+                                },
+                                label = { Text("Threshold") },
+                                modifier = Modifier
+                                    .width(maxWidth),
+                                maxLines = 1
+                            );
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(16.dp));
                 Button(onClick = {
                     onEditedTask();
-                    //Edit Task in Repository
-
+                    taskViewModel.editTask(Task(task.id - 1, name, description, dueDate, progress.text.toFloat(), progressThreshold.text.toFloat()));
                 }) {
                     Text("Update Task");
                 }

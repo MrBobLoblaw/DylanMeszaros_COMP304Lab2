@@ -5,5 +5,6 @@ data class Task (
     val name: String,
     val description: String,
     val dueDate: String,
-    val status: Boolean
+    val progress: Float,
+    val progressThreshold: Float
 )
